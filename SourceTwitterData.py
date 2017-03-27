@@ -14,11 +14,12 @@ from operator import itemgetter
 import matplotlib.pyplot as plt
 from collections import deque
 
+#include your own CONSUMER_KEY, CONSUMER_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET
 def login():
-	CONSUMER_KEY = "4kwvbpYNFKLuJlGOCsz2tdpV8"
-	CONSUMER_SECRET = "MBJtx5gO6PdhFkWreCYeS9ivr93eAnlO4uGVikAU0pJRwAYL96"
-	OAUTH_TOKEN = "825037296655335425-FFlFTVM8uDgboAK9YfBO5j3cfhHwgT7"
-	OAUTH_TOKEN_SECRET = "9LpuESuyI37Y1vrtUPSvnEuZaw1U91MHtbP83GnRy9tM7"
+	CONSUMER_KEY = "****"
+	CONSUMER_SECRET = "****"
+	OAUTH_TOKEN = "****"
+	OAUTH_TOKEN_SECRET = "****"
 	auth = twitter.OAuth(OAUTH_TOKEN, OAUTH_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET)
 	return twitter.Twitter(auth=auth)
 
