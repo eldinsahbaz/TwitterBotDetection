@@ -1,5 +1,3 @@
-#Eldin Sahbaz -- CIS 400 -- Assignment 2
-
 import sys
 import os
 import time
