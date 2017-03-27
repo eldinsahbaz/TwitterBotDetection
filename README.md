@@ -1,2 +1,2 @@
 # TwitterBotDetection
-[Raw Dataset](goo.gl/ko7lzS)
+[goo.gl/ko7lzS]
