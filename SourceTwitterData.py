@@ -7,10 +7,6 @@ from functools import partial
 from sys import maxint
 import json
 import twitter
-from networkx import *
-from operator import itemgetter
-import matplotlib.pyplot as plt
-from collections import deque
 
 #include your own CONSUMER_KEY, CONSUMER_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET
 def login():
