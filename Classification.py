@@ -442,7 +442,7 @@ def trainClassifiers():
 
 		#train and classify with a random forest
 	    #https://www.kaggle.com/c/digit-recognizer/discussion/2299
-        rf = RandomForestClassifier(n_estimators=200)
+        rf = RandomForestClassifier(n_estimators=100)
         rf.fit(trainData, trainLabels)
         rfOut = rf.predict(testData)
 
