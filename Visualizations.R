@@ -61,7 +61,7 @@ q_heatBar <- qplot(x=TwitterData$quotes, fill=..count.., geom="histogram") + sca
 
 #replies
 #r_normalized <- (TwitterData$replies-min(TwitterData$replies))/(max(TwitterData$replies)-min(TwitterData$replies))
-r_bp <- ggplot(TwitterData, aes(Label, r)) + geom_boxplot(outlier.colour = "red", outlier.shape = 1)
+r_bp <- ggplot(TwitterData, aes(Label, replies)) + geom_boxplot(outlier.colour = "red", outlier.shape = 1)
 r_Scatter <- qplot(seq_along(TwitterData$replies), TwitterData$replies)
 r_StackedBar <- qplot(x=TwitterData$replies, fill=TwitterData$Label, geom="histogram") 
 r_heatBar <- qplot(x=TwitterData$replies, fill=..count.., geom="histogram") + scale_fill_gradient(low="blue", high="red")
