@@ -529,7 +529,7 @@ def classify(name, twitter_api, ann, rf, dt, svm, nb, knn, lr):
 	    user = [OrderedDict(sorted(profile[name].items())).values()]
 
 		#return rsults of classification
-	    return({'ann': ann.predict(user), 'rf': rf.predict(user), 'dt': dt.predict(user), 'lr': lr.predict(user), 'svm': svm.predict(user), 'nb': nb.predict(user), 'knn': knn.predict(user)})
+	    return({'ann': ann.predict(user).tolist(), 'rf': rf.predict(user).tolist(), 'dt': dt.predict(user).tolist(), 'lr': lr.predict(user).tolist(), 'svm': svm.predict(user).tolist(), 'nb': nb.predict(user).tolist(), 'knn': knn.predict(user).tolist()})
 
 
 #takes in usernames for classification via command line arguments
@@ -543,6 +543,9 @@ if __name__ == "__main__":
 	for i in rates.keys():
 		rates[i] = '%.2f%%' % (sum(rates[i])/float(len(rates[i])))
 	print('Classification Accuracy:', rates)
+	f = open('KFoldCV.txt', 'w')
+	json.dump(rates, f)
+	f.close()
 
 	#for each screen_name passed in via command line argument, classify as either
 	#bot (i.e. 0) or user (i.e. 1)
@@ -550,3 +553,6 @@ if __name__ == "__main__":
 		print('screen_name:' + name)
 		result = classify(name, twitter_api, ann, rf, dt, svm, nb, knn, lr)
 		print('Classification Results for {0}:'.format(name), result)
+        f = open('result.txt', 'w')
+        json.dump(result, f)
+        f.close()
