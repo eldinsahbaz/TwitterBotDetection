@@ -1,5 +1,5 @@
 import numpy as np
-import json, random, twitter, datetime, re, sys, string
+import json, random, twitter, datetime, re, sys, string, pickle, os.path, time
 from sys import maxint
 from dateutil import parser
 from bs4 import BeautifulSoup as BSHTML
@@ -160,7 +160,7 @@ def harvest_user_timeline(twitter_api, screen_name=None, user_id=None, max_resul
 
     results += tweets
 
-    print >> sys.stderr, 'Fetched %i tweets' % len(tweets)
+    #print >> sys.stderr, 'Fetched %i tweets' % len(tweets)
 
     page_num = 1
 
@@ -189,11 +189,11 @@ def harvest_user_timeline(twitter_api, screen_name=None, user_id=None, max_resul
         tweets = make_twitter_request(twitter_api.statuses.user_timeline, **kw)
         results += tweets
 
-        print >> sys.stderr, 'Fetched %i tweets' % (len(tweets),)
+        #print >> sys.stderr, 'Fetched %i tweets' % (len(tweets),)
 
         page_num += 1
 
-    print >> sys.stderr, 'Done fetching tweets'
+    #print >> sys.stderr, 'Done fetching tweets'
 
     return results[:max_results]
 
@@ -278,7 +278,10 @@ def extractProfile(profile):
             temp[k] = profile[usr][k]
 
 		#derive friend-follower ration
-        temp['follower_ratio'] = profile[usr]['friends_count']/float(profile[usr]['followers_count'])
+        if profile[usr]['followers_count'] == 0:
+            temp['follower_ratio'] = 0
+        else:
+        	temp['follower_ratio'] = profile[usr]['friends_count']/float(profile[usr]['followers_count'])
 
 		#add the temporary dictionary with the extracted features to the 'cleaned' dictionary
         cleaned[usr] = temp
@@ -410,12 +413,20 @@ def trainClassifiers():
 
 	#place holders for accuracy values for each of the classifiers we use
 	#(to be averaged after iterating over each of the 10 folds)
-    accuracies = {'NeuralNetwork': [], 'LogisticRegression': [], 'KNearestNeighbors': [], 'SupportVectorMachine': [], 'RandomForest': [], 'DecisionTree': [], 'NaiveBayes': []}
+    accuracies = {'NeuralNetwork': [], 'SupportVectorMachine': [], 'LogisticRegression': [], 'KNearestNeighbors': [], 'RandomForest': [], 'DecisionTree': [], 'NaiveBayes': []}
 
 	#iterate over each fold
     f = 1
+    bestann = [None, -maxint]
+    bestrf = [None, -maxint]
+    bestdt = [None, -maxint]
+    bestlr = [None, -maxint]
+    bestnb = [None, -maxint]
+    bestknn = [None, -maxint]
+    bestsvm = [None, -maxint]
+
     for train_index, test_index in folds.split(bots):
-        print('fold {0}'.format(f))
+        #print('fold {0}'.format(f))
         f = f + 1
 
 		#segment the data into training and testing sets
@@ -464,9 +475,9 @@ def trainClassifiers():
         svm.fit(trainData, trainLabels)
         svmOut = svm.predict(testData)
 
-		#train and classify with a Naive Bayes for multivariate Bernoulli models using bagging
+		#train and classify with a Naive Bayes for multivariate Bernoulli models
 	    #http://scikit-learn.org/stable/modules/generated/sklearn.naive_bayes.GaussianNB.html
-        nb = BaggingClassifier(BernoulliNB(), max_samples=0.5, max_features=0.5)
+        nb = BernoulliNB()
         nb.fit(trainData, trainLabels)
         nbOut = nb.predict(testData)
 
@@ -485,15 +496,45 @@ def trainClassifiers():
 		#conver the testLabels to a numpy array and compute the accuracy for this
 		#iteration. Then add the accuracy to the list of accuracies for each classifier
         testLabels = np.array(testLabels)
-        accuracies['NeuralNetwork'].append(accuracy(annOut, testLabels))
-        accuracies['LogisticRegression'].append(accuracy(lrOut, testLabels))
-        accuracies['KNearestNeighbors'].append(accuracy(knnOut, testLabels))
-        accuracies['SupportVectorMachine'].append(accuracy(svmOut, testLabels))
-        accuracies['RandomForest'].append(accuracy(rfOut, testLabels))
-        accuracies['DecisionTree'].append(accuracy(dtOut, testLabels))
-        accuracies['NaiveBayes'].append(accuracy(nbOut, testLabels))
+        annAcc = accuracy(annOut, testLabels)
+        lrAcc = accuracy(lrOut, testLabels)
+        knnAcc = accuracy(knnOut, testLabels)
+        rfAcc = accuracy(rfOut, testLabels)
+        dtAcc = accuracy(dtOut, testLabels)
+        nbAcc = accuracy(nbOut, testLabels)
+        svmAcc = accuracy(svmOut, testLabels)
 
-    return (ann, rf, dt, svm, nb, knn, lr, accuracies)
+        if svmAcc > bestsvm[1]:
+            bestsvm[0] = svm
+            bestsvm[1] = svmAcc
+        if annAcc > bestann[1]:
+            bestann[0] = ann
+            bestann[1] = annAcc
+        if rfAcc > bestrf[1]:
+            bestrf[0] = rf
+            bestrf[1] = rfAcc
+        if dtAcc > bestdt[1]:
+            bestdt[0] = dt
+            bestdt[1] = dtAcc
+        if lrAcc > bestlr[1]:
+            bestlr[0] = lr
+            bestlr[1] = lrAcc
+        if knnAcc > bestknn[1]:
+            bestknn[0] = knn
+            bestknn[1] = knnAcc
+        if nbAcc > bestnb[1]:
+            bestnb[0] = nb
+            bestnb[1] = nbAcc
+
+        accuracies['NeuralNetwork'].append(annAcc)
+        accuracies['LogisticRegression'].append(lrAcc)
+        accuracies['KNearestNeighbors'].append(knnAcc)
+        accuracies['SupportVectorMachine'].append(svmAcc)
+        accuracies['RandomForest'].append(rfAcc)
+        accuracies['DecisionTree'].append(dtAcc)
+        accuracies['NaiveBayes'].append(nbAcc)
+
+    return (bestann[0], bestsvm[0], bestrf[0], bestdt[0], bestnb[0], bestknn[0], bestlr[0], accuracies)
 
 #compute the accuracy of the output from the classifiers
 def accuracy(output, testLabels):
@@ -502,14 +543,14 @@ def accuracy(output, testLabels):
 	return (100*np.count_nonzero(np.array(output) == testLabels)/float(len(testLabels)))
 
 #classify a new instance
-def classify(name, twitter_api, ann, rf, dt, svm, nb, knn, lr):
+def classify(name, twitter_api, ann, rf, dt, nb, knn, lr, svm):
 	#get the user's profile from Twitter
     profile = get_user_profile(twitter_api, screen_names=[name])
 
 	#only classify if the user not a verified user
     if profile[name]['verified']:
-        print('verified user')
-        return({})
+        #print('verified user')
+        return({'ann': [1], 'svm': [1], 'rf': [1], 'dt': [1], 'lr': [1], 'nb':[1], 'knn': [1]})
     else:
 		#get Tweets for this user (i.e. get user timeline)
 	    tweets = dict()
@@ -529,7 +570,7 @@ def classify(name, twitter_api, ann, rf, dt, svm, nb, knn, lr):
 	    user = [OrderedDict(sorted(profile[name].items())).values()]
 
 		#return rsults of classification
-	    return({'ann': ann.predict(user).tolist(), 'rf': rf.predict(user).tolist(), 'dt': dt.predict(user).tolist(), 'lr': lr.predict(user).tolist(), 'svm': svm.predict(user).tolist(), 'nb': nb.predict(user).tolist(), 'knn': knn.predict(user).tolist()})
+	    return({'ann': ann.predict(user).tolist(), 'svm': svm.predict(user).tolist(), 'rf': rf.predict(user).tolist(), 'dt': dt.predict(user).tolist(), 'lr': lr.predict(user).tolist(), 'nb': nb.predict(user).tolist(), 'knn': knn.predict(user).tolist()})
 
 
 #takes in usernames for classification via command line arguments
@@ -537,22 +578,61 @@ if __name__ == "__main__":
 	#get authenticated to make twitter calls
 	twitter_api = login()
 	#train and get classifiers
-	(ann, rf, dt, svm, nb, knn, lr, rates) = trainClassifiers()
+	#if one is stored then all of the are stoed
+	if os.path.isfile('rf.model'):
+		#print('reading')
+		with open('ann.model', 'rb') as handle:
+			ann = pickle.load(handle)
+		with open('dt.model', 'rb') as handle:
+			dt = pickle.load(handle)
+		with open('rf.model', 'rb') as handle:
+			rf = pickle.load(handle)
+		with open('nb.model', 'rb') as handle:
+			nb = pickle.load(handle)
+		with open('knn.model', 'rb') as handle:
+			knn = pickle.load(handle)
+		with open('svm.model', 'rb') as handle:
+			svm = pickle.load(handle)
+		with open('lr.model', 'rb') as handle:
+			lr = pickle.load(handle)
+		with open('rates.txt', 'rb') as handle:
+			rates = pickle.load(handle)
+	else:
+		(ann, svm, rf, dt, nb, knn, lr, rates) = trainClassifiers()
+		with open('ann.model', 'wb') as handle:
+			pickle.dump(ann, handle, protocol=pickle.HIGHEST_PROTOCOL)
+		with open('svm.model', 'wb') as handle:
+			pickle.dump(svm, handle, protocol=pickle.HIGHEST_PROTOCOL)
+		with open('dt.model', 'wb') as handle:
+			pickle.dump(dt, handle, protocol=pickle.HIGHEST_PROTOCOL)
+		with open('rf.model', 'wb') as handle:
+			pickle.dump(rf, handle, protocol=pickle.HIGHEST_PROTOCOL)
+		with open('nb.model', 'wb') as handle:
+			pickle.dump(nb, handle, protocol=pickle.HIGHEST_PROTOCOL)
+		with open('knn.model', 'wb') as handle:
+			pickle.dump(knn, handle, protocol=pickle.HIGHEST_PROTOCOL)
+		with open('lr.model', 'wb') as handle:
+			pickle.dump(lr, handle, protocol=pickle.HIGHEST_PROTOCOL)
+		with open('rates.txt', 'wb') as handle:
+			pickle.dump(rates, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 	#average the accuracy rates (for each classifier) and convert the accuracy rates to percent
 	for i in rates.keys():
 		rates[i] = '%.2f%%' % (sum(rates[i])/float(len(rates[i])))
-	print('Classification Accuracy:', rates)
-	f = open('KFoldCV.txt', 'w')
-	json.dump(rates, f)
-	f.close()
 
 	#for each screen_name passed in via command line argument, classify as either
 	#bot (i.e. 0) or user (i.e. 1)
 	for name in sys.argv[1:]:
-		print('screen_name:' + name)
-		result = classify(name, twitter_api, ann, rf, dt, svm, nb, knn, lr)
-		print('Classification Results for {0}:'.format(name), result)
-        f = open('result.txt', 'w')
-        json.dump(result, f)
-        f.close()
+		result = classify(name, twitter_api, ann, rf, dt, nb, knn, lr, svm)
+		r = {}
+
+		keys = [('KNearestNeighbors', 'knn'), ('SupportVectorMachine', 'svm'), ('LogisticRegression', 'lr'), ('NeuralNetwork', 'ann'), ('RandomForest', 'rf'), ('NaiveBayes', 'nb'), ('DecisionTree', 'dt')]
+
+		for key in keys:
+			r[key[0]] = {
+				'accuracy': rates[key[0]],
+				'prediction': result[key[1]][0]
+			}
+		#print(json.dumps(name, indent=4, sort_keys=True))
+		print(json.dumps({name:r}))
+		#print(json.dump({name: r}))
